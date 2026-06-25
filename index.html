@@ -1,3 +1,4 @@
+HTML
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -437,7 +438,7 @@ function verCredencial(id){
   let item = db.credenciales.find(c => c.id === id);
   if(!item){ return; }
   
-  // URL CORREGIDA: Apunta dinámicamente al nuevo repositorio en GitHub Pages
+  // URL CORREGIDA: Apunta al entorno definitivo en GitHub Pages
   const urlVerificacion = `https://icaballeroc.github.io/payment-it-app/verificacion_guardia.html?id=${item.id}`;
   
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));

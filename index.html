@@ -79,6 +79,7 @@
   @media print{
     .noprint{display:none;}
     body{background:#fff;}
+    #credCard img, #credCard canvas{ image-rendering: pixelated; image-rendering: crisp-edges; }
   }
 </style>
 </head>
@@ -448,7 +449,16 @@ function mostrarCredencial(data, andSwitch){
       <button class="secondary" onclick="document.getElementById('credCard').style.display='none'">Cerrar</button>
     </div>
   `;
-  new QRCode(document.getElementById('qr_'+data.id), {text: guardUrl, width:140, height:140});
+  new QRCode(document.getElementById('qr_'+data.id), {
+    text: guardUrl, width: 300, height: 300,
+    colorDark: '#000000', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+  // Mostrar el QR en tamaño visual reducido aunque la resolución interna sea alta (mejor nitidez al imprimir)
+  setTimeout(()=>{
+    const qrImg = document.querySelector(`#qr_${data.id} img, #qr_${data.id} canvas`);
+    if(qrImg){ qrImg.style.width = '160px'; qrImg.style.height = '160px'; }
+  }, 50);
   card.querySelector('.logoCred').src = LOGO_DATA_URI;
   if(data.historial && data.historial.length){
     const visibles = data.historial.filter(h => h.estado === 'auth');

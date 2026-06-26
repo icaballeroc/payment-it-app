@@ -154,6 +154,14 @@
   <!-- LISTA -->
   <div class="panel" id="panel-lista">
     <div class="card">
+      <input id="listaSearch" placeholder="🔎 Buscar por nombre, serie, ID o inventario..." oninput="renderLista()" style="margin-bottom:10px;">
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+        <button class="secondary filtro-btn" data-filtro="todas" onclick="setFiltroLista('todas')" style="flex:1;">Todas</button>
+        <button class="secondary filtro-btn" data-filtro="activas" onclick="setFiltroLista('activas')" style="flex:1;">Activas</button>
+        <button class="secondary filtro-btn" data-filtro="vencidas" onclick="setFiltroLista('vencidas')" style="flex:1;">Vencidas</button>
+      </div>
+      <button class="secondary" onclick="exportarCSV()" style="width:100%;margin-bottom:14px;">📥 Exportar a CSV</button>
+      <button class="danger" onclick="limpiarVencidasViejas()" style="width:100%;margin-bottom:14px;">🗑️ Eliminar vencidas hace +30 días</button>
       <div id="listaContainer"><div class="empty">Cargando...</div></div>
     </div>
   </div>
@@ -246,8 +254,8 @@ function autocompletar(idx){
 
 function genId(){
   const year = new Date().getFullYear();
-  const n = Math.floor(Math.random()*9000+1000);
-  return `RET-${year}-${n}`;
+  const ts = Date.now().toString().slice(-6);
+  return `RET-${year}-${ts}`;
 }
 
 // ===== Conexión a Supabase =====
@@ -291,6 +299,14 @@ function estaVencida(vencimientoStr){
   const [d,m,y] = vencimientoStr.split('/').map(Number);
   const venc = new Date(y, m-1, d, 23, 59, 59);
   return new Date() > venc;
+}
+
+function porVencer(vencimientoStr){
+  if(!vencimientoStr || estaVencida(vencimientoStr)) return false;
+  const [d,m,y] = vencimientoStr.split('/').map(Number);
+  const venc = new Date(y, m-1, d, 23, 59, 59);
+  const horas = (venc - new Date()) / (1000*60*60);
+  return horas <= 24;
 }
 
 async function listAll(){
@@ -348,13 +364,24 @@ async function deleteCred(id){
 }
 
 async function crearCredencial(){
+  const equipo = val('f_equipo');
+  const serie = val('f_serie');
+  const responsable = val('f_responsable');
+  const faltantes = [];
+  if(!equipo) faltantes.push('Equipo / Tipo');
+  if(!serie) faltantes.push('N° de Serie');
+  if(!responsable) faltantes.push('Responsable que retira');
+  if(faltantes.length){
+    alert('⚠️ Completá estos campos obligatorios antes de generar la credencial:\n\n- ' + faltantes.join('\n- '));
+    return;
+  }
   const id = genId();
   const dias = val('f_dias');
   const data = {
     id,
-    equipo: val('f_equipo'), marca: val('f_marca'), modelo: val('f_modelo'),
-    serie: val('f_serie'), inventario: val('f_inventario'),
-    responsable: val('f_responsable'), cedula: val('f_cedula'),
+    equipo, marca: val('f_marca'), modelo: val('f_modelo'),
+    serie, inventario: val('f_inventario'),
+    responsable, cedula: val('f_cedula'),
     motivo: val('f_motivo'), estado: document.getElementById('f_estado').value,
     fecha: new Date().toLocaleString('es-PY'),
     creadoPor: currentUser || 'No identificado',
@@ -369,6 +396,7 @@ async function crearCredencial(){
   document.getElementById('fotoPreviewWrap').style.display = 'none';
   fotoBase64 = '';
   mostrarCredencial(data, true);
+  renderLista();
 }
 
 function val(id){ return document.getElementById(id).value.trim(); }
@@ -441,32 +469,99 @@ async function guardarImagen(id){
   link.click();
 }
 
+async function limpiarVencidasViejas(){
+  const keys = await listAll();
+  const candidatas = [];
+  for(const k of keys){
+    const id = k.replace('cred:','');
+    const d = await getCred(id);
+    if(!d || !d.vencimiento) continue;
+    const [dd,mm,yy] = d.vencimiento.split('/').map(Number);
+    const venc = new Date(yy, mm-1, dd);
+    const diasVencida = (new Date() - venc) / (1000*60*60*24);
+    if(diasVencida > 30) candidatas.push(d.id);
+  }
+  if(!candidatas.length){
+    alert('No hay credenciales vencidas hace más de 30 días.');
+    return;
+  }
+  if(!confirm(`Se van a eliminar ${candidatas.length} credencial(es) vencidas hace más de 30 días. Esta acción no se puede deshacer. ¿Continuar?`)) return;
+  for(const id of candidatas){ await deleteCred(id); }
+  alert(`✅ ${candidatas.length} credencial(es) eliminadas.`);
+  renderLista();
+}
+
+async function exportarCSV(){
+  const keys = await listAll();
+  if(!keys.length){ alert('No hay credenciales para exportar.'); return; }
+  const filas = [['ID','Equipo','Marca','Modelo','Serie','Inventario','Responsable','Cedula','Motivo','Estado','Vencida','Fecha','Vencimiento','CreadoPor']];
+  for(const k of keys){
+    const id = k.replace('cred:','');
+    const d = await getCred(id);
+    if(!d) continue;
+    const vencida = estaVencida(d.vencimiento) ? 'SI' : 'NO';
+    filas.push([d.id, d.equipo, d.marca, d.modelo, d.serie, d.inventario, d.responsable, d.cedula, d.motivo, d.estado, vencida, d.fecha, d.vencimiento||'', d.creadoPor]);
+  }
+  const csv = filas.map(f => f.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `credenciales_${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+}
+
+let filtroLista = 'todas';
+function setFiltroLista(f){
+  filtroLista = f;
+  document.querySelectorAll('.filtro-btn').forEach(b => b.style.background = (b.dataset.filtro === f) ? 'var(--accent)' : '');
+  document.querySelectorAll('.filtro-btn').forEach(b => b.style.color = (b.dataset.filtro === f) ? '#fff' : '');
+  renderLista();
+}
+
 async function renderLista(){
   const cont = document.getElementById('listaContainer');
   const keys = await listAll();
   if(!keys.length){ cont.innerHTML = '<div class="empty">No hay credenciales generadas aún.</div>'; return; }
+  const busqueda = (document.getElementById('listaSearch')?.value || '').trim().toLowerCase();
   let html = '';
+  let total = 0;
+  let porVencerCount = 0;
   for(const k of keys.sort().reverse()){
     const id = k.replace('cred:','');
     const d = await getCred(id);
     if(!d) continue;
-    const isAuth = d.estado === 'auth';
+    const vencida = estaVencida(d.vencimiento);
+
+    if(filtroLista === 'activas' && vencida) continue;
+    if(filtroLista === 'vencidas' && !vencida) continue;
+
+    if(busqueda){
+      const texto = `${d.id} ${d.responsable||''} ${d.serie||''} ${d.inventario||''} ${d.equipo||''} ${d.modelo||''}`.toLowerCase();
+      if(!texto.includes(busqueda)) continue;
+    }
+
+    total++;
+    const isAuth = d.estado === 'auth' && !vencida;
+    const proxVencer = porVencer(d.vencimiento);
+    if(proxVencer) porVencerCount++;
     html += `
       <div class="list-item">
         <div>
           <div class="item-id">${d.id}</div>
           <div class="item-sub">${d.equipo||''} ${d.marca||''} ${d.modelo||''} · ${d.responsable||'-'}</div>
-          <div class="item-sub" style="opacity:0.7;">Creado por: ${d.creadoPor||'No identificado'}</div>
+          <div class="item-sub" style="opacity:0.7;">Creado por: ${d.creadoPor||'No identificado'}${d.vencimiento ? ' · Vence: '+d.vencimiento : ''}</div>
         </div>
         <div class="item-actions">
-          <span class="badge ${isAuth?'auth':'noauth'}">${isAuth?'AUTORIZADO':'NO AUTORIZADO'}</span>
+          ${proxVencer ? '<span class="badge" style="background:#3a2a10;color:#f5a623;">⚠️ VENCE MAÑANA</span>' : ''}
+          <span class="badge ${isAuth?'auth':'noauth'}">${vencida ? 'VENCIDA' : (isAuth?'AUTORIZADO':'NO AUTORIZADO')}</span>
           <button class="secondary" onclick='toggleEstado("${d.id}")'>🔁</button>
           <button class="secondary" onclick='verPorId("${d.id}")'>👁️</button>
           <button class="danger" onclick='borrar("${d.id}")'>🗑️</button>
         </div>
       </div>`;
   }
-  cont.innerHTML = html || '<div class="empty">No hay credenciales generadas aún.</div>';
+  const banner = porVencerCount > 0 ? `<div style="background:#3a2a10;color:#f5a623;border:1px solid #f5a623;border-radius:8px;padding:10px;font-size:12px;margin-bottom:12px;">⚠️ ${porVencerCount} credencial(es) vencen en menos de 24hs.</div>` : '';
+  cont.innerHTML = banner + (html || '<div class="empty">No se encontraron credenciales con ese filtro/búsqueda.</div>');
 }
 
 async function toggleEstado(id){

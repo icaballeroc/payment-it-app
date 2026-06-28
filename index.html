@@ -87,6 +87,71 @@
     .credPrint h2{ font-size:11pt !important; }
     .credPrint div{ font-weight:600; -webkit-font-smoothing: none; }
   }
+/* ============ MEJORAS UI PROFESIONAL ============ */
+.statsBar{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px; }
+.statBox{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:10px 6px; text-align:center; transition:transform .15s; }
+.statBox:hover{ transform:translateY(-2px); }
+.statNum{ font-size:20px; font-weight:800; color:var(--text); }
+.statBox.good .statNum{ color:var(--green); }
+.statBox.bad .statNum{ color:var(--red); }
+.statBox.warn .statNum{ color:#f5a623; }
+.statLabel{ font-size:10px; color:var(--muted); margin-top:2px; text-transform:uppercase; letter-spacing:0.4px; }
+
+.btn-advanced{
+  width:100%; margin-bottom:14px; padding:13px; border:1px solid var(--accent); border-radius:10px;
+  background:linear-gradient(135deg, rgba(25,182,160,0.18), rgba(25,182,160,0.06));
+  color:var(--accent); font-weight:700; font-size:14px; cursor:pointer; transition:all .2s;
+}
+.btn-advanced:hover{ background:rgba(25,182,160,0.28); transform:translateY(-1px); }
+
+.advOverlay{
+  display:none; position:fixed; inset:0; background:rgba(5,10,16,0.65); backdrop-filter:blur(4px);
+  z-index:1000; align-items:flex-start; justify-content:center; padding:24px 14px; overflow-y:auto;
+}
+.advOverlay.open{ display:flex; }
+.advModal{
+  background:var(--card); border:1px solid var(--border); border-radius:16px; width:100%; max-width:480px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.5); animation:advPop .25s cubic-bezier(.2,1.2,.4,1) both;
+}
+@keyframes advPop{ 0%{ opacity:0; transform:scale(.92) translateY(10px); } 100%{ opacity:1; transform:scale(1) translateY(0); } }
+.advHeader{
+  display:flex; justify-content:space-between; align-items:center; padding:16px 18px;
+  border-bottom:1px solid var(--border); font-weight:700; font-size:15px;
+}
+.advClose{ background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer; padding:2px 8px; margin:0; }
+.advClose:hover{ color:var(--text); }
+.advFilters{ padding:16px 18px; display:flex; flex-direction:column; gap:10px; border-bottom:1px solid var(--border); }
+.advRow{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.advResults{ padding:10px 14px 18px; max-height:55vh; overflow-y:auto; }
+.advCard{
+  background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:8px;
+  display:flex; justify-content:space-between; align-items:center; gap:10px; transition:border-color .15s;
+}
+.advCard:hover{ border-color:var(--accent); }
+.advCardInfo{ flex:1; min-width:0; }
+.advCardName{ font-weight:700; font-size:14px; }
+.advCardMeta{ font-size:11px; color:var(--muted); margin-top:2px; }
+.advCardActions{ display:flex; gap:6px; flex-shrink:0; }
+.advBtn{
+  border:none; border-radius:8px; padding:8px 10px; font-size:12px; font-weight:700; cursor:pointer; color:#fff; white-space:nowrap;
+  transition:transform .12s;
+}
+.advBtn:active{ transform:scale(0.93); }
+.advBtn.on{ background:var(--green); }
+.advBtn.off{ background:var(--red); }
+.advBadge{ display:inline-block; font-size:10px; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
+.advBadge.auth{ background:var(--green-bg); color:var(--green); }
+.advBadge.noauth{ background:var(--red-bg); color:var(--red); }
+.advBadge.venc{ background:#3a2a10; color:#f5a623; }
+
+/* Pulido general */
+.card{ box-shadow:0 4px 16px rgba(0,0,0,0.18); }
+button{ transition:transform .12s, opacity .12s; }
+button:hover{ opacity:0.92; }
+button:active{ transform:scale(0.97); }
+.list-item{ transition:border-color .15s; }
+.list-item:hover{ border-color:var(--accent); }
+/* ============ FIN MEJORAS UI ============ */
 </style>
 </head>
 <body>
@@ -160,6 +225,13 @@
 
   <!-- LISTA -->
   <div class="panel" id="panel-lista">
+    <div class="statsBar" id="statsBar">
+      <div class="statBox"><div class="statNum" id="stat-total">–</div><div class="statLabel">Total</div></div>
+      <div class="statBox good"><div class="statNum" id="stat-auth">–</div><div class="statLabel">Autorizadas</div></div>
+      <div class="statBox bad"><div class="statNum" id="stat-noauth">–</div><div class="statLabel">No autorizadas</div></div>
+      <div class="statBox warn"><div class="statNum" id="stat-vencen">–</div><div class="statLabel">Vencen pronto</div></div>
+    </div>
+    <button class="btn-advanced" onclick="abrirBusquedaAvanzada()">🔍 Búsqueda avanzada de agentes</button>
     <div class="card">
       <input id="listaSearch" placeholder="🔎 Buscar por nombre, serie, ID o inventario..." oninput="renderLista()" style="margin-bottom:10px;">
       <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
@@ -191,6 +263,37 @@
 
   <!-- VISTA CREDENCIAL (modal-like, reusa panel) -->
   <div class="card" id="credCard" style="display:none;"></div>
+
+  <div id="advSearchOverlay" class="advOverlay">
+    <div class="advModal">
+      <div class="advHeader">
+        <span>🔍 Búsqueda avanzada de agentes</span>
+        <button class="advClose" onclick="cerrarBusquedaAvanzada()">✕</button>
+      </div>
+      <div class="advFilters">
+        <input id="adv_nombre" placeholder="Nombre del agente / responsable..." oninput="renderBusquedaAvanzada()">
+        <div class="advRow">
+          <select id="adv_estado" onchange="renderBusquedaAvanzada()">
+            <option value="">Estado: Todos</option>
+            <option value="auth">✅ Autorizado</option>
+            <option value="noauth">⛔ No autorizado</option>
+          </select>
+          <select id="adv_vencimiento" onchange="renderBusquedaAvanzada()">
+            <option value="">Vencimiento: Todos</option>
+            <option value="prox">⚠️ Vence en 24hs</option>
+            <option value="vencida">⛔ Ya vencida</option>
+            <option value="sin">∞ Sin vencimiento</option>
+          </select>
+        </div>
+        <select id="adv_orden" onchange="renderBusquedaAvanzada()">
+          <option value="reciente">Ordenar: Más reciente primero</option>
+          <option value="nombre">Ordenar: Nombre A-Z</option>
+          <option value="vencimiento">Ordenar: Vencimiento próximo</option>
+        </select>
+      </div>
+      <div id="advResults" class="advResults"><div class="empty">Escribí un nombre o aplicá un filtro...</div></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -534,10 +637,119 @@ function setFiltroLista(f){
   renderLista();
 }
 
+function abrirBusquedaAvanzada(){
+  document.getElementById('advSearchOverlay').classList.add('open');
+  document.getElementById('adv_nombre').value = '';
+  document.getElementById('adv_nombre').focus();
+  renderBusquedaAvanzada();
+}
+function cerrarBusquedaAvanzada(){
+  document.getElementById('advSearchOverlay').classList.remove('open');
+}
+
+async function renderBusquedaAvanzada(){
+  const cont = document.getElementById('advResults');
+  const nombre = document.getElementById('adv_nombre').value.trim().toLowerCase();
+  const estadoF = document.getElementById('adv_estado').value;
+  const vencF = document.getElementById('adv_vencimiento').value;
+  const orden = document.getElementById('adv_orden').value;
+
+  const keys = await listAll();
+  let items = [];
+  for(const k of keys){
+    const id = k.replace('cred:','');
+    const d = await getCred(id);
+    if(!d) continue;
+    items.push(d);
+  }
+
+  items = items.filter(d => {
+    if(nombre && !(d.responsable||'').toLowerCase().includes(nombre)) return false;
+    const vencida = estaVencida(d.vencimiento);
+    if(estadoF === 'auth' && !(d.estado === 'auth' && !vencida)) return false;
+    if(estadoF === 'noauth' && (d.estado === 'auth' && !vencida)) return false;
+    if(vencF === 'prox' && !porVencer(d.vencimiento)) return false;
+    if(vencF === 'vencida' && !vencida) return false;
+    if(vencF === 'sin' && d.vencimiento) return false;
+    return true;
+  });
+
+  if(orden === 'nombre'){
+    items.sort((a,b) => (a.responsable||'').localeCompare(b.responsable||''));
+  } else if(orden === 'vencimiento'){
+    items.sort((a,b) => {
+      if(!a.vencimiento) return 1;
+      if(!b.vencimiento) return -1;
+      const [da,ma,ya] = a.vencimiento.split('/').map(Number);
+      const [db,mb,yb] = b.vencimiento.split('/').map(Number);
+      return new Date(ya,ma-1,da) - new Date(yb,mb-1,db);
+    });
+  } else {
+    items.sort((a,b) => b.id.localeCompare(a.id));
+  }
+
+  if(!nombre && !estadoF && !vencF){
+    cont.innerHTML = '<div class="empty">Escribí un nombre o aplicá un filtro...</div>';
+    return;
+  }
+  if(!items.length){
+    cont.innerHTML = '<div class="empty">Sin resultados para esos filtros.</div>';
+    return;
+  }
+
+  cont.innerHTML = items.slice(0, 60).map(d => {
+    const vencida = estaVencida(d.vencimiento);
+    const isAuth = d.estado === 'auth' && !vencida;
+    return `
+    <div class="advCard">
+      <div class="advCardInfo">
+        <div class="advCardName">${d.responsable || '(sin nombre)'}
+          <span class="advBadge ${isAuth?'auth':'noauth'}">${vencida?'VENCIDA':(isAuth?'AUTORIZADO':'NO AUTORIZADO')}</span>
+        </div>
+        <div class="advCardMeta">${d.id} · ${d.equipo||''} ${d.modelo||''} ${d.vencimiento ? '· Vence '+d.vencimiento : ''}</div>
+      </div>
+      <div class="advCardActions">
+        <button class="advBtn on" onclick="toggleEstadoRapido('${d.id}','auth')" title="Autorizar">✅</button>
+        <button class="advBtn off" onclick="toggleEstadoRapido('${d.id}','noauth')" title="Desautorizar">⛔</button>
+      </div>
+    </div>`;
+  }).join('') + (items.length > 60 ? `<div class="empty">Mostrando 60 de ${items.length} resultados. Afiná la búsqueda.</div>` : '');
+}
+
+async function toggleEstadoRapido(id, nuevoEstado){
+  const d = await getCred(id);
+  if(!d) return;
+  if(d.estado === nuevoEstado){ return; }
+  d.estado = nuevoEstado;
+  if(!d.historial) d.historial = [];
+  d.historial.push({ accion: 'Cambio de estado', usuario: currentUser || 'No identificado', fecha: new Date().toLocaleString('es-PY'), estado: nuevoEstado });
+  await setCred(id, d);
+  renderBusquedaAvanzada();
+  renderLista();
+}
+
+async function actualizarStats(keys){
+  let total = 0, auth = 0, noauth = 0, vencenPronto = 0;
+  for(const k of keys){
+    const id = k.replace('cred:','');
+    const d = await getCred(id);
+    if(!d) continue;
+    total++;
+    const vencida = estaVencida(d.vencimiento);
+    if(d.estado === 'auth' && !vencida) auth++; else noauth++;
+    if(porVencer(d.vencimiento)) vencenPronto++;
+  }
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-auth').textContent = auth;
+  document.getElementById('stat-noauth').textContent = noauth;
+  document.getElementById('stat-vencen').textContent = vencenPronto;
+}
+
 async function renderLista(){
   const cont = document.getElementById('listaContainer');
   const keys = await listAll();
   if(!keys.length){ cont.innerHTML = '<div class="empty">No hay credenciales generadas aún.</div>'; return; }
+  actualizarStats(keys);
   const busqueda = (document.getElementById('listaSearch')?.value || '').trim().toLowerCase();
   let html = '';
   let total = 0;

@@ -709,6 +709,7 @@ async function renderBusquedaAvanzada(){
         <div class="advCardMeta">${d.id} · ${d.equipo||''} ${d.modelo||''} ${d.vencimiento ? '· Vence '+d.vencimiento : ''}</div>
       </div>
       <div class="advCardActions">
+        ${vencida ? `<button class="advBtn on" onclick="reactivarCredencial('${d.id}'); setTimeout(renderBusquedaAvanzada,300);" title="Reactivar">🔄</button>` : ''}
         <button class="advBtn on" onclick="toggleEstadoRapido('${d.id}','auth')" title="Autorizar">✅</button>
         <button class="advBtn off" onclick="toggleEstadoRapido('${d.id}','noauth')" title="Desautorizar">⛔</button>
       </div>
@@ -782,6 +783,7 @@ async function renderLista(){
         <div class="item-actions">
           ${proxVencer ? '<span class="badge" style="background:#3a2a10;color:#f5a623;">⚠️ VENCE MAÑANA</span>' : ''}
           <span class="badge ${isAuth?'auth':'noauth'}">${vencida ? 'VENCIDA' : (isAuth?'AUTORIZADO':'NO AUTORIZADO')}</span>
+          ${vencida ? `<button class="secondary" style="background:var(--green);color:#fff;border:none;" onclick='reactivarCredencial("${d.id}")'>🔄 Reactivar</button>` : ''}
           <button class="secondary" onclick='toggleEstado("${d.id}")'>🔁</button>
           <button class="secondary" onclick='verPorId("${d.id}")'>👁️</button>
           <button class="danger" onclick='borrar("${d.id}")'>🗑️</button>
@@ -799,6 +801,21 @@ async function toggleEstado(id){
   if(!d.historial) d.historial = [];
   d.historial.push({ accion: 'Cambio de estado', usuario: currentUser || 'No identificado', fecha: new Date().toLocaleString('es-PY'), estado: d.estado });
   await setCred(id, d);
+  renderLista();
+}
+
+async function reactivarCredencial(id){
+  const d = await getCred(id);
+  if(!d) return;
+  const dias = prompt(`Reactivar credencial de ${d.responsable || d.id}.\n\n¿Por cuántos días querés extender la validez? (vacío = sin vencimiento)`, '7');
+  if(dias === null) return; // canceló
+  d.diasValidez = dias ? parseInt(dias) : null;
+  d.vencimiento = calcVencimiento(dias);
+  d.estado = 'auth';
+  if(!d.historial) d.historial = [];
+  d.historial.push({ accion: 'Reactivada', usuario: currentUser || 'No identificado', fecha: new Date().toLocaleString('es-PY'), estado: 'auth' });
+  await setCred(id, d);
+  alert(`✅ Credencial reactivada${d.vencimiento ? ' hasta el '+d.vencimiento : ' sin vencimiento'}.`);
   renderLista();
 }
 
